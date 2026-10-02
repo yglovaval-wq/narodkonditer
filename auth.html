@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Народный кондитер — Авторизация</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/main.css">
+    <style>
+        .auth-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: calc(100vh - 120px);
+            padding: 20px;
+        }
+        .auth-card {
+            background: #ffffff;
+            padding: 35px 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+            width: 100%;
+            max-width: 380px;
+            text-align: center;
+        }
+        .auth-icon {
+            width: 60px;
+            height: 60px;
+            background: #fff8eb;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            color: #ef9339;
+            font-size: 24px;
+        }
+        .auth-card h2 {
+            font-size: 24px;
+            color: #6c9ecf;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            margin-bottom: 12px;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            outline: none;
+            box-sizing: border-box;
+            background: #f8fafc;
+        }
+        .input-group input:focus {
+            border-color: #6c9ecf;
+            background: #fff;
+        }
+        .btn-submit {
+            width: 100%;
+            padding: 12px;
+            background-color: #7eb0d5;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+        .btn-submit:hover {
+            background-color: #6a9cc2;
+        }
+        .toggle-text {
+            margin-top: 18px;
+            font-size: 13px;
+            color: #888;
+        }
+        .toggle-text a {
+            color: #888;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        .error-message {
+            color: #e57373;
+            font-size: 13px;
+            margin-top: 12px;
+            min-height: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <header class="container">
+            <span class="logo">Народный кондитер</span>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Главная</a></li>
+                    <li><a href="index.html#cakes">Торты</a></li>
+                    <li><a href="index.html#contacts">Контакты</a></li>
+                    <li><a href="cart.html">Корзина</a></li>
+                    <li class="btn active"><a href="auth.html">Вход</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <div class="auth-container">
+            <div class="auth-card">
+                <div class="auth-icon">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                
+                <h2 id="formTitle">Вход</h2>
+
+                <form id="authForm" novalidate>
+                    <div class="input-group">
+                        <input type="email" id="email" placeholder="Логин / Email" required>
+                    </div>
+                    <div class="input-group">
+                        <input type="password" id="password" placeholder="Пароль" required>
+                    </div>
+                    
+                    <!-- Поле повтора пароля для регистрации -->
+                    <div class="input-group" id="confirmPasswordGroup" style="display: none;">
+                        <input type="password" id="confirmPassword" placeholder="Повторите пароль">
+                    </div>
+
+                    <button type="submit" id="submitBtn" class="btn-submit">Войти</button>
+                    
+                    <p class="toggle-text">
+                        <span id="toggleQuestion">Нет аккаунта?</span> 
+                        <a id="toggleBtn">Зарегистрироваться</a>
+                    </p>
+
+                    <div id="errorMessage" class="error-message"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isLoginMode = true;
+
+        const formTitle = document.getElementById('formTitle');
+        const submitBtn = document.getElementById('submitBtn');
+        const toggleQuestion = document.getElementById('toggleQuestion');
+        const toggleBtn = document.getElementById('toggleBtn');
+        const confirmPasswordGroup = document.getElementById('confirmPasswordGroup');
+        const confirmPasswordInput = document.getElementById('confirmPassword');
+        const errorMessage = document.getElementById('errorMessage');
+        const authForm = document.getElementById('authForm');
+
+        // Функция переключения режимов (Вход <-> Регистрация)
+        function setMode(toLogin) {
+            isLoginMode = toLogin;
+            errorMessage.textContent = '';
+            authForm.reset();
+
+            if (isLoginMode) {
+                formTitle.textContent = 'Вход';
+                submitBtn.textContent = 'Войти';
+                toggleQuestion.textContent = 'Нет аккаунта?';
+                toggleBtn.textContent = 'Зарегистрироваться';
+                confirmPasswordGroup.style.display = 'none';
+                confirmPasswordInput.removeAttribute('required');
+            } else {
+                formTitle.textContent = 'Регистрация';
+                submitBtn.textContent = 'Создать аккаунт';
+                toggleQuestion.textContent = 'Есть аккаунт?';
+                toggleBtn.textContent = 'Войти';
+                confirmPasswordGroup.style.display = 'block';
+                confirmPasswordInput.setAttribute('required', 'true');
+            }
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            setMode(!isLoginMode);
+        });
+
+        // Отправка формы
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorMessage.textContent = '';
+
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!email || !password) {
+                errorMessage.textContent = 'Заполните все поля';
+                return;
+            }
+
+            // Валидация повтора пароля при регистрации
+            if (!isLoginMode) {
+                const confirmPassword = confirmPasswordInput.value;
+                if (password !== confirmPassword) {
+                    errorMessage.textContent = 'Пароли не совпадают';
+                    return;
+                }
+            }
+
+            const endpoint = isLoginMode ? '/api/login' : '/api/register';
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    errorMessage.textContent = data.error || 'Произошла ошибка';
+                } else {
+                    if (isLoginMode) {
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        alert('Успешный вход!');
+                        window.location.href = 'index.html';
+                    } else {
+                        alert('Регистрация успешно завершена! Теперь вы можете войти.');
+                        setMode(true);
+                    }
+                }
+            } catch (err) {
+                console.error('Ошибка запроса:', err);
+                errorMessage.textContent = 'Ошибка соединения с сервером. Проверьте, запущен ли node server.js';
+            }
+        });
+    </script>
+</body>
+</html>

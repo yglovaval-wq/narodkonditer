@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход / Регистрация — Народный кондитер</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+    <div class="wrapper">
+        <header class="container">
+            <span class="logo">Народный кондитер</span>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Главная</a></li>
+                    <li><a href="index.html#cakes">Торты</a></li>
+                    <li><a href="index.html#contacts">Контакты</a></li>
+                    <li><a href="cart.html">Корзина <span id="cartCountBadge" class="cart-badge" style="display:none;">0</span></a></li>
+                    <li class="btn active"><a href="login.html">Вход</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <section class="auth-section">
+            <div class="container">
+                <div class="auth-card">
+                    <div class="auth-icon-box">
+                        <i class="fa-solid fa-user-lock"></i>
+                    </div>
+
+                    <!-- Форма Входа -->
+                    <form id="loginForm" class="auth-form active">
+                        <h2>Вход</h2>
+                        <div class="input-group">
+                            <input type="email" id="loginEmail" placeholder="Ваша почта (Email)" required>
+                        </div>
+                        <div class="input-group">
+                            <input type="password" id="loginPassword" placeholder="Пароль" required>
+                        </div>
+                        <button type="submit" class="btn-auth">Войти</button>
+                        <p class="auth-toggle-text">
+                            Нет аккаунта? <a href="#" id="showRegister">Зарегистрироваться</a>
+                        </p>
+                        <div id="loginError" style="color: #d9534f; margin-top: 10px; font-size: 14px;"></div>
+                    </form>
+
+                    <!-- Форма Регистрации -->
+                    <form id="registerForm" class="auth-form">
+                        <h2>Регистрация</h2>
+                        <div class="input-group">
+                            <input type="email" id="regEmail" placeholder="Ваша почта (Email)" required>
+                        </div>
+                        <div class="input-group">
+                            <input type="password" id="regPassword" placeholder="Пароль" required>
+                        </div>
+                        <div class="input-group">
+                            <input type="password" id="regConfirmPassword" placeholder="Повторите пароль" required>
+                        </div>
+                        <button type="submit" class="btn-auth">Зарегистрироваться</button>
+                        <p class="auth-toggle-text">
+                            Уже есть аккаунт? <a href="#" id="showLogin">Войти</a>
+                        </p>
+                        <div id="regError" style="color: #d9534f; margin-top: 10px; font-size: 14px;"></div>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        const showRegister = document.getElementById('showRegister');
+        const showLogin = document.getElementById('showLogin');
+        const loginError = document.getElementById('loginError');
+        const regError = document.getElementById('regError');
+
+        // Переключение между формами
+        showRegister.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginError.textContent = '';
+            regError.textContent = '';
+            loginForm.classList.remove('active');
+            registerForm.classList.add('active');
+        });
+
+        showLogin.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginError.textContent = '';
+            regError.textContent = '';
+            registerForm.classList.remove('active');
+            loginForm.classList.add('active');
+        });
+
+        // Отправка формы входа
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            loginError.textContent = '';
+
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    loginError.textContent = data.error || 'Ошибка при входе';
+                } else {
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    alert('Успешный вход!');
+                    window.location.href = 'index.html';
+                }
+            } catch (err) {
+                console.error(err);
+                loginError.textContent = 'Ошибка соединения с сервером';
+            }
+        });
+
+        // Отправка формы регистрации
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            regError.textContent = '';
+
+            const email = document.getElementById('regEmail').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const confirmPassword = document.getElementById('regConfirmPassword').value;
+
+            if (password !== confirmPassword) {
+                regError.textContent = 'Пароли не совпадают';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    regError.textContent = data.error || 'Ошибка при регистрации';
+                } else {
+                    alert('Регистрация успешна! Теперь вы можете войти.');
+                    showLogin.click();
+                }
+            } catch (err) {
+                console.error(err);
+                regError.textContent = 'Ошибка соединения с сервером';
+            }
+        });
+
+        // Обновление бейджа корзины
+        const cart = JSON.parse(localStorage.getItem('bakeryCart')) || [];
+        const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+        const badge = document.getElementById('cartCountBadge');
+        if (badge && totalCount > 0) {
+            badge.textContent = totalCount;
+            badge.style.display = 'inline-block';
+        }
+    </script>
+</body>
+</html>
