@@ -1,9 +1,13 @@
 {
+  "name": "narodny-konditer",
+  "version": "1.0.0",
+  "description": "Сайт Народный кондитер",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^5.2.1",
-    "sqlite3": "^6.0.1"
+    "express": "^4.19.2",
+    "sqlite3": "^5.1.7"
   }
 }
