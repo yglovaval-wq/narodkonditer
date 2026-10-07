@@ -11,11 +11,10 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Раздача статических файлов сайта (html, css, js, изображения)
-// Раздаем все файлы из текущей директории
-app.use(express.static(__dirname));
+// Раздача статических файлов из папки public/
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Инициализация и подключение к базе данных SQLite
+// Инициализация базы данных SQLite
 const dbPath = path.resolve(__dirname, 'database.db');
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
@@ -27,7 +26,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
 // Создание таблиц при первом запуске
 db.serialize(() => {
-    // Таблица пользователей (если используется регистрация)
+    // Таблица пользователей
     db.run(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         email TEXT UNIQUE,
@@ -76,13 +75,12 @@ app.post('/api/orders', (req, res) => {
     });
 });
 
-// Маршрут получения списка всех заказов (для проверки/админки)
+// Маршрут получения списка всех заказов
 app.get('/api/orders', (req, res) => {
     db.all(`SELECT * FROM orders ORDER BY created_at DESC`, [], (err, rows) => {
         if (err) {
             return res.status(500).json({ success: false, error: err.message });
         }
-        // Десериализуем товары из JSON-строки обратно в массив
         const orders = rows.map(order => ({
             ...order,
             items: JSON.parse(order.items)
@@ -91,9 +89,18 @@ app.get('/api/orders', (req, res) => {
     });
 });
 
-// Отдача главной страницы при обращении к корню
+// ==========================================
+// МАРШРУТЫ СТРАНИЦ (из папки public)
+// ==========================================
+
+// Главная страница
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Перенаправление всех остальных запросов на index.html
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Запуск сервера
