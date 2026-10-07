@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Раздача статических файлов из папки public/
+// 1. Раздача статических файлов из папки public/
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Инициализация базы данных SQLite
@@ -24,23 +24,24 @@ const db = new sqlite3.Database(dbPath, (err) => {
     }
 });
 
-// Создание таблиц при первом запуске
+// Создание таблиц при запуске
 db.serialize(() => {
     // Таблица пользователей
     db.run(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE,
-        password TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL
     )`);
 
     // Таблица заказов
     db.run(`CREATE TABLE IF NOT EXISTS orders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        userId INTEGER,
-        name TEXT,
+        user_id INTEGER,
+        customer_name TEXT,
+        phone TEXT,
+        comment TEXT,
         items TEXT,
-        totalPrice REAL,
+        total_price REAL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 });
@@ -49,48 +50,63 @@ db.serialize(() => {
 // API ЭНДПОИНТЫ
 // ==========================================
 
-// Маршрут оформления заказа (вызывается из cart.html)
+// Регистрация
+app.post('/api/register', (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
+        return res.status(400).json({ error: 'Заполните все поля' });
+    }
+
+    db.run(`INSERT INTO users (username, password) VALUES (?, ?)`, [email, password], function(err) {
+        if (err) {
+            console.error('Ошибка при регистрации:', err.message);
+            return res.status(400).json({ error: 'Пользователь с таким email уже существует' });
+        }
+        res.json({ success: true, userId: this.lastID });
+    });
+});
+
+// Вход
+app.post('/api/login', (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
+        return res.status(400).json({ error: 'Заполните все поля' });
+    }
+
+    db.get(`SELECT * FROM users WHERE username = ? AND password = ?`, [email, password], (err, user) => {
+        if (err) {
+            console.error('Ошибка БД при входе:', err.message);
+            return res.status(500).json({ error: 'Ошибка сервера' });
+        }
+        if (!user) {
+            return res.status(400).json({ error: 'Неверный логин или пароль' });
+        }
+        res.json({ success: true, user: { id: user.id, username: user.username } });
+    });
+});
+
+// Сохранение заказа из cart.html
 app.post('/api/orders', (req, res) => {
-    const { userId, name, items, totalPrice } = req.body;
+    const { userId, name, phone, comment, items, totalPrice } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ success: false, error: 'Корзина пуста' });
     }
 
     const itemsJson = JSON.stringify(items);
-    const query = `INSERT INTO orders (userId, name, items, totalPrice) VALUES (?, ?, ?, ?)`;
+    const query = `INSERT INTO orders (user_id, customer_name, phone, comment, items, total_price) VALUES (?, ?, ?, ?, ?, ?)`;
 
-    db.run(query, [userId || null, name || 'Гость', itemsJson, totalPrice], function (err) {
+    db.run(query, [userId || null, name || 'Гость', phone || null, comment || null, itemsJson, totalPrice || 0], function (err) {
         if (err) {
-            console.error('Ошибка добавления заказа:', err.message);
-            return res.status(500).json({ success: false, error: 'Ошибка сохранения заказа в базе данных' });
+            console.error('Ошибка при создании заказа:', err.message);
+            return res.status(500).json({ success: false, error: 'Ошибка при сохранении заказа' });
         }
-
-        console.log(`Заказ №${this.lastID} успешно сохранен.`);
-        res.json({
-            success: true,
-            orderId: this.lastID,
-            message: 'Заказ успешно оформлен!'
-        });
-    });
-});
-
-// Маршрут получения списка всех заказов
-app.get('/api/orders', (req, res) => {
-    db.all(`SELECT * FROM orders ORDER BY created_at DESC`, [], (err, rows) => {
-        if (err) {
-            return res.status(500).json({ success: false, error: err.message });
-        }
-        const orders = rows.map(order => ({
-            ...order,
-            items: JSON.parse(order.items)
-        }));
-        res.json({ success: true, orders });
+        res.json({ success: true, orderId: this.lastID });
     });
 });
 
 // ==========================================
-// МАРШРУТЫ СТРАНИЦ (из папки public)
+// МАРШРУТЫ ДЛЯ СТРАНИЦ
 // ==========================================
 
 // Главная страница
@@ -98,7 +114,7 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Перенаправление всех остальных запросов на index.html
+// Все остальные запросы перенаправляем на public/index.html
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
