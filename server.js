@@ -1,85 +1,102 @@
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const cors = require('cors');
 
 const app = express();
-const db = new sqlite3.Database('./database.db');
+// Render автоматически передает порт через переменную окружения process.env.PORT
+const PORT = process.env.PORT || 3000;
 
+// Мидлвары
+app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
-// Инициализация таблиц в базе данных
+// Раздача статических файлов сайта (html, css, js, изображения)
+// Раздаем все файлы из текущей директории
+app.use(express.static(__dirname));
+
+// Инициализация и подключение к базе данных SQLite
+const dbPath = path.resolve(__dirname, 'database.db');
+const db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+        console.error('Ошибка при подключении к базе данных:', err.message);
+    } else {
+        console.log('Успешное подключение к базе данных SQLite.');
+    }
+});
+
+// Создание таблиц при первом запуске
 db.serialize(() => {
-    // Таблица пользователей со столбцом username
+    // Таблица пользователей (если используется регистрация)
     db.run(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL
+        email TEXT UNIQUE,
+        password TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
     // Таблица заказов
     db.run(`CREATE TABLE IF NOT EXISTS orders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        customer_name TEXT NOT NULL,
-        phone TEXT NOT NULL,
-        comment TEXT,
+        userId INTEGER,
+        name TEXT,
+        items TEXT,
+        totalPrice REAL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 });
 
-// Регистрация
-app.post('/api/register', (req, res) => {
-    const { email, password } = req.body;
-    
-    if (!email || !password) {
-        return res.status(400).json({ error: 'Заполните все поля' });
-    }
+// ==========================================
+// API ЭНДПОИНТЫ
+// ==========================================
 
-    db.run(`INSERT INTO users (username, password) VALUES (?, ?)`, [email, password], function(err) {
-        if (err) {
-            console.error('Ошибка при регистрации:', err.message);
-            return res.status(400).json({ error: 'Пользователь с таким логином/email уже существует' });
-        }
-        res.json({ success: true, userId: this.lastID });
-    });
-});
-
-// Авторизация (Вход)
-app.post('/api/login', (req, res) => {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-        return res.status(400).json({ error: 'Заполните все поля' });
-    }
-
-    db.get(`SELECT * FROM users WHERE username = ? AND password = ?`, [email, password], (err, user) => {
-        if (err) {
-            console.error('Ошибка БД при входе:', err.message);
-            return res.status(500).json({ error: 'Ошибка сервера' });
-        }
-        
-        if (!user) {
-            return res.status(400).json({ error: 'Неверный логин или пароль' });
-        }
-
-        res.json({ success: true, user: { id: user.id, username: user.username } });
-    });
-});
-
-// Оформление заказа
+// Маршрут оформления заказа (вызывается из cart.html)
 app.post('/api/orders', (req, res) => {
-    const { userId, name, phone, comment } = req.body;
-    db.run(`INSERT INTO orders (user_id, customer_name, phone, comment) VALUES (?, ?, ?, ?)`,
-        [userId || null, name, phone, comment],
-        function(err) {
-            if (err) {
-                console.error('Ошибка при создании заказа:', err.message);
-                return res.status(500).json({ error: 'Ошибка при сохранении заказа' });
-            }
-            res.json({ success: true, orderId: this.lastID });
+    const { userId, name, items, totalPrice } = req.body;
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ success: false, error: 'Корзина пуста' });
+    }
+
+    const itemsJson = JSON.stringify(items);
+    const query = `INSERT INTO orders (userId, name, items, totalPrice) VALUES (?, ?, ?, ?)`;
+
+    db.run(query, [userId || null, name || 'Гость', itemsJson, totalPrice], function (err) {
+        if (err) {
+            console.error('Ошибка добавления заказа:', err.message);
+            return res.status(500).json({ success: false, error: 'Ошибка сохранения заказа в базе данных' });
         }
-    );
+
+        console.log(`Заказ №${this.lastID} успешно сохранен.`);
+        res.json({
+            success: true,
+            orderId: this.lastID,
+            message: 'Заказ успешно оформлен!'
+        });
+    });
 });
 
-app.listen(3000, () => console.log('Сервер запущен на http://localhost:3000'));
+// Маршрут получения списка всех заказов (для проверки/админки)
+app.get('/api/orders', (req, res) => {
+    db.all(`SELECT * FROM orders ORDER BY created_at DESC`, [], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ success: false, error: err.message });
+        }
+        // Десериализуем товары из JSON-строки обратно в массив
+        const orders = rows.map(order => ({
+            ...order,
+            items: JSON.parse(order.items)
+        }));
+        res.json({ success: true, orders });
+    });
+});
+
+// Отдача главной страницы при обращении к корню
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Запуск сервера
+app.listen(PORT, () => {
+    console.log(`Сервер запущен и работает на порту ${PORT}`);
+});
